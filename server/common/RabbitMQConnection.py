@@ -24,7 +24,7 @@ class RabbitMQConnection:
         else:
             print("Conexão já estava fechada.")
 
-    def setupDirectExchange(self, exchange: str):
+    def setup_direct_exchange(self, exchange: str):
         self.direct_exchange = exchange
         self.channel.exchange_declare(
             exchange=exchange, 
@@ -32,7 +32,7 @@ class RabbitMQConnection:
         )
         print(f"Exchange direct '{exchange}' criada.")
 
-    def setupFanoutExchange(self, exchange: str):
+    def setup_fanout_exchange(self, exchange: str):
         self.fanout_exchange = exchange
         self.channel.exchange_declare(
             exchange=exchange, 
@@ -40,7 +40,7 @@ class RabbitMQConnection:
         )
         print(f"Exchange fanout '{exchange}' criada.")
 
-    def setupQueue(self, exchange: str, queue: str, routing_key: str):
+    def setup_queue(self, exchange: str, queue: str, routing_key: str):
         self.channel.queue_declare(
             queue=queue,
         )
@@ -51,7 +51,7 @@ class RabbitMQConnection:
         )
         print(f"Fila '{queue}' declarada e vinculada.")
     
-    def setupAnonymousQueue(self, exchange: str) -> str:
+    def setup_anonymous_queue(self, exchange: str) -> str:
         queue = self.channel.queue_declare(
             queue="", 
             exclusive=True, 

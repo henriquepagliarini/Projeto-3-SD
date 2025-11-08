@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Dict, Union
-from AuctionStatus import AuctionStatus
-from RabbitMQConnection import RabbitMQConnection
+from server.ms_leilao.AuctionStatus import AuctionStatus
 
 TimeConfig = Dict[str, Union[int, float]]
 
@@ -10,13 +9,13 @@ class Auction:
         self.config = [start_in, duration]
         self.id = id
         self.description = description
-        self.start_date = self.calculateStartDate()
-        self.end_date = self.calculateEndDate()
+        self.start_date = self.calculate_start_date()
+        self.end_date = self.calculate_end_date()
         self.status = AuctionStatus.INACTIVE
         self.highest_bid = 0.0
         self.winner: int = -1
 
-    def parseTimeConfig(self, time_config: TimeConfig):
+    def parse_time_config(self, time_config: TimeConfig):
         delta = timedelta()
         if "days" in time_config:
             delta += timedelta(days=time_config["days"])
@@ -28,21 +27,21 @@ class Auction:
             delta += timedelta(seconds=time_config["seconds"])
         return delta
 
-    def calculateStartDate(self):
-        delta = self.parseTimeConfig(self.config[0])
+    def calculate_start_date(self):
+        delta = self.parse_time_config(self.config[0])
         return datetime.now() + delta
 
-    def calculateEndDate(self):
-        delta = self.parseTimeConfig(self.config[1])
+    def calculate_end_date(self):
+        delta = self.parse_time_config(self.config[1])
         return self.start_date + delta
 
-    def openAuction(self):
+    def open_auction(self):
         if self.status == AuctionStatus.INACTIVE:
             self.status = AuctionStatus.ACTIVE
             return
         raise Exception(f"Não é possível iniciar um lote {self.status}")
 
-    def closeAuction(self):
+    def close_auction(self):
         if self.status == AuctionStatus.ACTIVE:
             self.status = AuctionStatus.CLOSED
             return
