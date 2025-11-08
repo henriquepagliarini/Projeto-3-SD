@@ -14,29 +14,25 @@ class MSLeilao:
         self.rabbit = RabbitMQConnection()
         self.rabbit.connect()
         self.rabbit.setup_direct_exchange("leiloes")
-        self.rabbit.setup_fanout_exchange(QueueNames.AUCTION_STARTED.__str__())
+        self.setup_queues()
 
         self.scheduler = BackgroundScheduler()
-        self.setup_queues()
         self.auctions = []
         print("MS Leilão configurado.")
 
     def setup_queues(self):
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange, 
+            QueueNames.AUCTION_STARTED.__str__(), 
+            QueueNames.AUCTION_STARTED.__str__()
+        )
+        self.rabbit.setup_queue(
+            self.rabbit.direct_exchange, 
             QueueNames.AUCTION_ENDED.__str__(), 
             QueueNames.AUCTION_ENDED.__str__()
         )
-
-    def publish_fanout(self, event: dict):
-        self.rabbit.channel.basic_publish(
-            exchange=self.rabbit.fanout_exchange,
-            routing_key="",
-            body=json.dumps(event, default=str),
-            properties=pika.BasicProperties(delivery_mode=2)
-        )
     
-    def publish_direct(self, event: dict, routing_key: str = None):
+    def publish_event(self, event: dict, routing_key: str):
         self.rabbit.channel.basic_publish(
             exchange=self.rabbit.direct_exchange,
             routing_key=routing_key,
@@ -45,14 +41,11 @@ class MSLeilao:
         )
 
     def create_new_auction(self, description: str, start_in, duration):
-        new_auction = Auction(len(self.auctions) + 1, description, start_in, duration)
-        self.auctions.append(new_auction)
-
-        self.rabbit.setup_queue(
-            self.rabbit.direct_exchange,
-            f"leilao_{new_auction.id}",
-            f"leilao_{new_auction.id}"
+        new_auction = Auction(
+            len(self.auctions) + 1, 
+            description, start_in, duration
         )
+        self.auctions.append(new_auction)
 
         self.scheduler.add_job(
             func=self.start_auction,
@@ -82,7 +75,7 @@ class MSLeilao:
                 "highest_bid": auction.highest_bid,
                 "winner": auction.winner
             }
-            self.publish_fanout(event)
+            self.publish_event(event, QueueNames.AUCTION_STARTED.__str__())
             print(f"    Leilão {auction.id} iniciado: {auction.description}.")
         except Exception as e:
             print(f"Erro ao iniciar leilão {auction.id}: {e}")
@@ -101,7 +94,7 @@ class MSLeilao:
                 "end_date": auction.end_date.isoformat(),
                 "status": auction.status.__str__(),
             }
-            self.publish_direct(event, QueueNames.AUCTION_ENDED.__str__())
+            self.publish_event(event, QueueNames.AUCTION_ENDED.__str__())
             print(f"    Leilão {auction.id} finalizado: {auction.description}.")
         except Exception as e:
             print(f"Erro ao finalizar leilão {auction.id}: {e}")
@@ -116,7 +109,6 @@ class MSLeilao:
         self.scheduler.start()
         print("Scheduler iniciado.")
         print("Iniciando MS Leilão...")
-        time.sleep(3)
         print(f"Agora são {datetime.now().strftime('%H:%M:%S')}\n")
 
         try:

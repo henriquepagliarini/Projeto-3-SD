@@ -5,9 +5,6 @@ from server.ms_leilao.MSLeilao import MSLeilao
 app = Flask(__name__)
 app.json.sort_keys = False
 
-service = MSLeilao()
-Thread(target=service.start_service, daemon=True).start()
-
 @app.route("/leiloes", methods=["GET"])
 def get_auctions():
     auctions = []
@@ -18,8 +15,6 @@ def get_auctions():
             "start_date": auction.start_date.isoformat(),
             "end_date": auction.end_date.isoformat(),
             "status": auction.status.__str__(),
-            "highest_bid": auction.highest_bid,
-            "winner": auction.winner
         })
     return jsonify(auctions), 200
 
@@ -40,4 +35,7 @@ def add_auction():
     except Exception as e:
         return jsonify({"erro": e}), 400
 
-app.run(port=6666, debug=True)
+if __name__ == "__main__":
+    service = MSLeilao()
+    Thread(target=service.start_service, daemon=True).start()
+    app.run(port=6666, debug=True, use_reloader=False)
