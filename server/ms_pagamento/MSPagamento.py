@@ -1,0 +1,116 @@
+import json
+import threading
+import time
+import pika
+import requests
+from server.common.QueueNames import QueueNames
+from server.common.RabbitMQConnection import RabbitMQConnection
+
+
+class MSPagamento:
+    def __init__(self):
+        print("Configurando MS Pagamento...")
+        self.rabbit = RabbitMQConnection()
+        self.rabbit.connect()
+        self.rabbit.setup_direct_exchange("payment")
+        self.setup_queues()
+        print("MS Pagamento configurado.")
+
+    def setup_queues(self):
+        self.rabbit.setup_queue(
+            self.rabbit.direct_exchange,
+            QueueNames.PAYMENT_LINK.__str__(),
+            QueueNames.PAYMENT_LINK.__str__()
+        )
+        self.rabbit.setup_queue(
+            self.rabbit.direct_exchange,
+            QueueNames.PAYMENT_STATUS.__str__(),
+            QueueNames.PAYMENT_STATUS.__str__()
+        )
+
+    def consume_event(self):
+        rabbit_consumer = RabbitMQConnection()
+        rabbit_consumer.connect()
+        rabbit_consumer.setup_direct_exchange("lances")
+
+        rabbit_consumer.setup_queue(
+            rabbit_consumer.direct_exchange,
+            QueueNames.AUCTION_WINNER.__str__(),
+            QueueNames.AUCTION_WINNER.__str__()
+        )
+
+        try:
+            rabbit_consumer.channel.basic_consume(
+                queue=QueueNames.AUCTION_WINNER.__str__(),
+                on_message_callback=self.process_auction_winner,
+                auto_ack=True
+            )
+
+            rabbit_consumer.channel.start_consuming()
+        except Exception as e:
+            print(f"Erro no consumo de eventos do MS Pagamento: {e}.")
+        finally:
+            rabbit_consumer.disconnect()
+
+    def publish_event(self, event: dict, routing_key: str):
+        self.rabbit.channel.basic_publish(
+            exchange=self.rabbit.direct_exchange,
+            routing_key=routing_key,
+            body=json.dumps(event, default=str),
+            properties=pika.BasicProperties(delivery_mode=2)
+        )
+
+    def process_auction_winner(self, ch, method, properties, body):
+        data = json.loads(body)
+        auction_id = data["auction_id"]
+        user_id = data["user_id"]
+        amount = data["highest_bid"]
+
+        payment_request = {
+            "auction_id": auction_id,
+            "user_id": user_id,
+            "amount": amount,
+            "currency": "BRL",
+            "callback_url": "http://localhost:6668/payment/webhook"
+        }
+        response = requests.post("http://localhost:7777/create_payment_url", json=payment_request).json()
+
+        event = {
+            "auction_id": auction_id,
+            "user_id": user_id,
+            "amount": amount,
+            "payment_url": response["payment_url"]
+        }
+
+        print(f"Link de pagamento gerado.")
+        self.publish_event(event, QueueNames.PAYMENT_LINK.__str__())
+
+    def process_webhook(self, data):
+        event = {
+            "transaction_id": data["transaction_id"],
+            "auction_id": data["auction_id"],
+            "user_id": data["user_id"],
+            "amount": data["amount"],
+            "status": data["status"]
+        }
+
+        self.publish_event(event, QueueNames.PAYMENT_STATUS.__str__())
+        print(f"Status de pagamento publicado.")
+
+    def start_service(self):
+        print("Iniciando MS Pagamento...")
+        print("--------------------------------")
+        try:
+            print("Aguardando leilões com vencedores...")
+            consumer_thread = threading.Thread(target=self.consume_event, daemon=True)
+            consumer_thread.start()
+
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("MS Pagamento interrompido.")
+        except Exception as e:
+            print(f"Erro no MS Pagamento: {e}.")
+        finally:
+            self.rabbit.disconnect()
+            print("MS Pagamento terminado com sucesso.")

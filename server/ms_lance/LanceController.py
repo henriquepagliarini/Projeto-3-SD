@@ -17,7 +17,7 @@ def make_bid():
 
         return jsonify({"mensagem": "Lance enviado com sucesso"}), 201
     except Exception as e:
-        return jsonify({"erro": e}), 400
+        return jsonify({"erro": str(e)}), 400
 
 if __name__ == "__main__":
     service = MSLance()
