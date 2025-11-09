@@ -3,3 +3,5 @@ pika
 pycryptodome
 Flask
 requests
+flask-sse
+redis
