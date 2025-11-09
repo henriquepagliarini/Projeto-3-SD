@@ -1,4 +1,5 @@
 from threading import Thread
+import requests
 from flask import Flask, jsonify, request
 from server.ms_leilao.MSLeilao import MSLeilao
 
@@ -14,7 +15,7 @@ def get_auctions():
             "description": auction.description,
             "start_date": auction.start_date.isoformat(),
             "end_date": auction.end_date.isoformat(),
-            "status": auction.status.__str__(),
+            "status": auction.status.value,
         })
     return jsonify(auctions), 200
 
@@ -23,7 +24,7 @@ def add_auction():
     data = request.get_json()
 
     if not data:
-        return jsonify({"erro": "Dados recebidos inválidos"})
+        return jsonify({"erro": "Dados recebidos inválidos"}), 400
     
     try:
         service.create_new_auction(
@@ -33,7 +34,7 @@ def add_auction():
         )
         return jsonify({"mensagem": "Leilao criado com sucesso"}), 201
     except Exception as e:
-        return jsonify({"erro": str(e)}), 400
+        return jsonify({"erro": str(e)}), 500
 
 if __name__ == "__main__":
     service = MSLeilao()

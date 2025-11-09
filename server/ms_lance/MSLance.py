@@ -19,18 +19,18 @@ class MSLance:
     def setup_queues(self):
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange,
-            QueueNames.BID_VALID.__str__(),
-            QueueNames.BID_VALID.__str__()
+            QueueNames.BID_VALID.value,
+            QueueNames.BID_VALID.value
         )
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange,
-            QueueNames.BID_INVALID.__str__(),
-            QueueNames.BID_INVALID.__str__()
+            QueueNames.BID_INVALID.value,
+            QueueNames.BID_INVALID.value
         )
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange,
-            QueueNames.AUCTION_WINNER.__str__(),
-            QueueNames.AUCTION_WINNER.__str__()
+            QueueNames.AUCTION_WINNER.value,
+            QueueNames.AUCTION_WINNER.value
         )
 
     def consume_event(self):
@@ -40,24 +40,24 @@ class MSLance:
 
         rabbit_consumer.setup_queue(
             rabbit_consumer.direct_exchange,
-            QueueNames.AUCTION_STARTED.__str__(),
-            QueueNames.AUCTION_STARTED.__str__()
+            QueueNames.AUCTION_STARTED.value,
+            QueueNames.AUCTION_STARTED.value
         )
         rabbit_consumer.setup_queue(
             rabbit_consumer.direct_exchange,
-            QueueNames.AUCTION_ENDED.__str__(),
-            QueueNames.AUCTION_ENDED.__str__()
+            QueueNames.AUCTION_ENDED.value,
+            QueueNames.AUCTION_ENDED.value
         )
 
         try:
             rabbit_consumer.channel.basic_consume(
-                queue=QueueNames.AUCTION_STARTED.__str__(),
+                queue=QueueNames.AUCTION_STARTED.value,
                 on_message_callback=self.process_auction_started,
                 auto_ack=True
             )
 
             rabbit_consumer.channel.basic_consume(
-                queue=QueueNames.AUCTION_ENDED.__str__(),
+                queue=QueueNames.AUCTION_ENDED.value,
                 on_message_callback=self.process_auction_ended,
                 auto_ack=True,
             )
@@ -67,10 +67,10 @@ class MSLance:
         finally:
             rabbit_consumer.disconnect()
 
-    def publish_event(self, event: dict, routing_key: str):
+    def publish_event(self, event: dict, routing_key: QueueNames):
         self.rabbit.channel.basic_publish(
             exchange=self.rabbit.direct_exchange,
-            routing_key=routing_key,
+            routing_key=routing_key.value,
             body=json.dumps(event, default=str),
             properties=pika.BasicProperties(delivery_mode=2)
         )
@@ -80,8 +80,8 @@ class MSLance:
             auction_data = json.loads(body)
             auction_id = int(auction_data["auction_id"])
             self.active_auctions[auction_id] = {
-                "highest_bid": float(auction_data.get("highest_bid")),
-                "winner": auction_data.get("winner")
+                "highest_bid": float(auction_data["highest_bid"]),
+                "winner": int(auction_data["winner"])
             }
         except Exception as e:
             print(f"Erro ao processar leilão iniciado: {e}.")
@@ -90,9 +90,10 @@ class MSLance:
         try:
             auction_data = json.loads(body)
             auction_id = int(auction_data["auction_id"])
-            a = self.active_auctions.get(auction_id)
-            winner = a.get("winner")
-            highest_bid = a.get("highest_bid")
+
+            a = self.active_auctions[auction_id]
+            winner = a["winner"]
+            highest_bid = a["highest_bid"]
             
             if winner != -1:
                 event = {
@@ -101,7 +102,7 @@ class MSLance:
                     "highest_bid": highest_bid
                 }
                 print(f"Leilão {auction_id} - Vencedor: {winner} - R${highest_bid:.2f}.")
-                self.publish_event(event, QueueNames.AUCTION_WINNER.__str__())
+                self.publish_event(event, QueueNames.AUCTION_WINNER)
             else:
                 print(f"Leilão {auction_id} sem vencedor.")
             del self.active_auctions[auction_id]
@@ -121,14 +122,14 @@ class MSLance:
             }
 
             if not self.validate_bid(auction_id, value):
-                self.publish_event(event, QueueNames.BID_INVALID.__str__())
+                self.publish_event(event, QueueNames.BID_INVALID)
                 print(f"Lance invalidado: Leilão {auction_id}, Usuário {user_id}, R${value:.2f}.")
                 return
             
             self.active_auctions[auction_id]["highest_bid"] = value
             self.active_auctions[auction_id]["winner"] = user_id
 
-            self.publish_event(event, QueueNames.BID_VALID.__str__())
+            self.publish_event(event, QueueNames.BID_VALID)
             print(f"Lance validado: Leilão {auction_id}, Usuário {user_id}, R${value:.2f}.")
         except Exception as e:
             print(f"Erro ao processar lance: {e}.")
@@ -137,8 +138,7 @@ class MSLance:
         if auction_id not in self.active_auctions:
             return False
 
-        highest_bid = self.active_auctions[auction_id].get("highest_bid")
-        if value <= highest_bid:
+        if value <= self.active_auctions[auction_id]["highest_bid"]:
             return False
         return True
 

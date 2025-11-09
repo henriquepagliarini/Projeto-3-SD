@@ -23,19 +23,19 @@ class MSLeilao:
     def setup_queues(self):
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange, 
-            QueueNames.AUCTION_STARTED.__str__(), 
-            QueueNames.AUCTION_STARTED.__str__()
+            QueueNames.AUCTION_STARTED.value, 
+            QueueNames.AUCTION_STARTED.value
         )
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange, 
-            QueueNames.AUCTION_ENDED.__str__(), 
-            QueueNames.AUCTION_ENDED.__str__()
+            QueueNames.AUCTION_ENDED.value, 
+            QueueNames.AUCTION_ENDED.value
         )
     
-    def publish_event(self, event: dict, routing_key: str):
+    def publish_event(self, event: dict, routing_key: QueueNames):
         self.rabbit.channel.basic_publish(
             exchange=self.rabbit.direct_exchange,
-            routing_key=routing_key,
+            routing_key=routing_key.value,
             body=json.dumps(event, default=str),
             properties=pika.BasicProperties(delivery_mode=2)
         )
@@ -71,12 +71,12 @@ class MSLeilao:
                 "description": auction.description,
                 "start_date": auction.start_date.isoformat(),
                 "end_date": auction.end_date.isoformat(),
-                "status": auction.status.__str__(),
+                "status": auction.status.value,
                 "highest_bid": auction.highest_bid,
                 "winner": auction.winner
             }
-            self.publish_event(event, QueueNames.AUCTION_STARTED.__str__())
-            print(f"    Leilão {auction.id} iniciado: {auction.description}.")
+            self.publish_event(event, QueueNames.AUCTION_STARTED)
+            print(f"Leilão {auction.id} iniciado: {auction.description}.")
         except Exception as e:
             print(f"Erro ao iniciar leilão {auction.id}: {e}")
 
@@ -92,10 +92,10 @@ class MSLeilao:
                 "description": auction.description,
                 "start_date": auction.start_date.isoformat(),
                 "end_date": auction.end_date.isoformat(),
-                "status": auction.status.__str__(),
+                "status": auction.status.value,
             }
-            self.publish_event(event, QueueNames.AUCTION_ENDED.__str__())
-            print(f"    Leilão {auction.id} finalizado: {auction.description}.")
+            self.publish_event(event, QueueNames.AUCTION_ENDED)
+            print(f"Leilão {auction.id} finalizado: {auction.description}.")
         except Exception as e:
             print(f"Erro ao finalizar leilão {auction.id}: {e}")
 

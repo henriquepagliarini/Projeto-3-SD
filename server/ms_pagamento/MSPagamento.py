@@ -12,20 +12,20 @@ class MSPagamento:
         print("Configurando MS Pagamento...")
         self.rabbit = RabbitMQConnection()
         self.rabbit.connect()
-        self.rabbit.setup_direct_exchange("payment")
+        self.rabbit.setup_direct_exchange("pagamentos")
         self.setup_queues()
         print("MS Pagamento configurado.")
 
     def setup_queues(self):
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange,
-            QueueNames.PAYMENT_LINK.__str__(),
-            QueueNames.PAYMENT_LINK.__str__()
+            QueueNames.PAYMENT_LINK.value,
+            QueueNames.PAYMENT_LINK.value
         )
         self.rabbit.setup_queue(
             self.rabbit.direct_exchange,
-            QueueNames.PAYMENT_STATUS.__str__(),
-            QueueNames.PAYMENT_STATUS.__str__()
+            QueueNames.PAYMENT_STATUS.value,
+            QueueNames.PAYMENT_STATUS.value
         )
 
     def consume_event(self):
@@ -35,13 +35,13 @@ class MSPagamento:
 
         rabbit_consumer.setup_queue(
             rabbit_consumer.direct_exchange,
-            QueueNames.AUCTION_WINNER.__str__(),
-            QueueNames.AUCTION_WINNER.__str__()
+            QueueNames.AUCTION_WINNER.value,
+            QueueNames.AUCTION_WINNER.value
         )
 
         try:
             rabbit_consumer.channel.basic_consume(
-                queue=QueueNames.AUCTION_WINNER.__str__(),
+                queue=QueueNames.AUCTION_WINNER.value,
                 on_message_callback=self.process_auction_winner,
                 auto_ack=True
             )
@@ -52,10 +52,10 @@ class MSPagamento:
         finally:
             rabbit_consumer.disconnect()
 
-    def publish_event(self, event: dict, routing_key: str):
+    def publish_event(self, event: dict, routing_key: QueueNames):
         self.rabbit.channel.basic_publish(
             exchange=self.rabbit.direct_exchange,
-            routing_key=routing_key,
+            routing_key=routing_key.value,
             body=json.dumps(event, default=str),
             properties=pika.BasicProperties(delivery_mode=2)
         )
@@ -83,7 +83,7 @@ class MSPagamento:
         }
 
         print(f"Link de pagamento gerado.")
-        self.publish_event(event, QueueNames.PAYMENT_LINK.__str__())
+        self.publish_event(event, QueueNames.PAYMENT_LINK)
 
     def process_webhook(self, data):
         event = {
@@ -94,7 +94,7 @@ class MSPagamento:
             "status": data["status"]
         }
 
-        self.publish_event(event, QueueNames.PAYMENT_STATUS.__str__())
+        self.publish_event(event, QueueNames.PAYMENT_STATUS)
         print(f"Status de pagamento publicado.")
 
     def start_service(self):

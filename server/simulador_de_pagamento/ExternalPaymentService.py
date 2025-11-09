@@ -1,6 +1,6 @@
 import threading
 import time
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, jsonify, request
 import random
 import requests
 
@@ -13,7 +13,7 @@ def create_payment_url():
     data = request.get_json()
 
     if not data:
-        return jsonify({"erro": "Dados recebidos inválidos"})
+        return jsonify({"erro": "Dados recebidos inválidos"}), 400
     
     transaction_id = len(transactions) + 1
     transactions[transaction_id] = data

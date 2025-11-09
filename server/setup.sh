@@ -10,4 +10,4 @@ echo "Instalando dependências..."
 pip install -r requirements.txt
 
 echo "Ambiente configurado!"
-echo "Ative o ambiente com: source venv/bin/activate"
+echo "Volte para a pasta raiz e ative o ambiente com: source server/venv/bin/activate"
