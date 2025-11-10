@@ -1,13 +1,17 @@
 import json
-import os
+import threading
 import time
-from flash_sse import sse
 from server.common.QueueNames import QueueNames
 from server.common.RabbitMQConnection import RabbitMQConnection
 
 class APIGateway:
-    def __init__(self, app):
+    def __init__(self, app, sse):
         print("Configurando API Gateway...")
+        self.users = {}
+        self.users_channels = {}
+        self.app = app
+        self.sse = sse
+
         self.lances_rabbit = RabbitMQConnection()
         self.pagamentos_rabbit = RabbitMQConnection()
 
@@ -48,7 +52,7 @@ class APIGateway:
             QueueNames.PAYMENT_STATUS.value
         )
 
-    def consume_event(self):
+    def consume_bids(self):
         self.lances_rabbit.channel.basic_consume(
             queue=QueueNames.BID_VALID.value,
             on_message_callback=self.process_bid_valid,
@@ -64,7 +68,9 @@ class APIGateway:
             on_message_callback=self.process_auction_winner,
             auto_ack=True
         )
-
+        self.lances_rabbit.channel.start_consuming()
+    
+    def consume_payments(self):
         self.pagamentos_rabbit.channel.basic_consume(
             queue=QueueNames.PAYMENT_LINK.value,
             on_message_callback=self.process_payment_link,
@@ -75,15 +81,24 @@ class APIGateway:
             on_message_callback=self.process_payment_status,
             auto_ack=True
         )
-
-        self.lances_rabbit.channel.start_consuming()
         self.pagamentos_rabbit.channel.start_consuming()
 
     def process_bid_valid(self, ch, method, properties, body):
         try:
             data = json.loads(body)
             auction_id = data["auction_id"]
+            user_id = data["user_id"]
+            value = data["value"]
+            sse_type = "lance_valido"
+
+            message = {
+                "type": sse_type,
+                "auction_id": auction_id,
+                "user_id": user_id,
+                "value": value,
+            }
             
+            self.sse_to_interested_users(auction_id, sse_type, message)
             print(f"SSE: Novo lance válido no leilão {auction_id}")
             
         except Exception as e:
@@ -93,8 +108,19 @@ class APIGateway:
     def process_bid_invalid(self, ch, method, properties, body):
         try:
             data = json.loads(body)
+            auction_id = data["auction_id"]
             user_id = data["user_id"]
+            value = data["value"]
+            sse_type = "lance_invalido"
             
+            message = {
+                "type": sse_type,
+                "auction_id": auction_id,
+                "user_id": user_id,
+                "value": value,
+            }
+            
+            self.sse_to_user(user_id, sse_type, message)
             print(f"SSE: Lance inválido do user {user_id}")
             
         except Exception as e:
@@ -105,7 +131,17 @@ class APIGateway:
             data = json.loads(body)
             auction_id = data["auction_id"]
             user_id = data["user_id"]
+            highest_bid = data["highest_bid"]
+            sse_type = "vencedor_leilao"
+
+            message = {
+                "type": sse_type,
+                "auction_id": auction_id,
+                "user_id": user_id,
+                "highest_bid": highest_bid,
+            }
             
+            self.sse_to_interested_users(auction_id, sse_type, message)
             print(f"SSE: User {user_id} vencedor do leilão {auction_id}")
             
         except Exception as e:
@@ -114,7 +150,21 @@ class APIGateway:
     def process_payment_link(self, ch, method, properties, body):
         try:
             data = json.loads(body)
+            auction_id = data["auction_id"]
             user_id = data["user_id"]
+            payment_url = data["payment_url"]
+            amount = data["amount"]
+            sse_type = "link_pagamento"
+
+            message = {
+                "type": sse_type,
+                "user_id": user_id,
+                "auction_id": auction_id,
+                "payment_url": payment_url,
+                "amount": amount,
+            }
+            
+            self.sse_to_user(user_id, sse_type, message)
             
             print(f"SSE: Link de pagamento para user {user_id}")
             
@@ -124,18 +174,78 @@ class APIGateway:
     def process_payment_status(self, ch, method, properties, body):
         try:
             data = json.loads(body)
+            auction_id = data["auction_id"]
             user_id = data["user_id"]
             status = data["status"]
+            amount = data["amount"]
+            sse_type = "status_pagamento"
+
+            message = {
+                "type": "status_pagamento",
+                "user_id": user_id,
+                "auction_id": auction_id,
+                "status": status,
+                "amount": amount,
+            }
             
+            self.sse_to_user(user_id, sse_type, message)
             print(f"SSE: Status de pagamento ({status}) do user {user_id}")
             
         except Exception as e:
             print(f"Erro ao processar status de pagamento: {e}")
 
+    def sse_to_interested_users(self, auction_id, event_type, data):
+        interested_users = []
+        for user_id, auctions in self.users.items():
+            if auction_id in auctions:
+                interested_users.append(user_id)
+        
+        for user_id in interested_users:
+            self.sse_to_user(user_id, event_type, data)
+
+    def sse_to_user(self, user_id, event_type, data):
+        try:
+            with self.app.app_context():
+                channel = self.users_channels.get(user_id)
+                if channel:
+                    self.sse.publish(
+                        data,
+                        type=event_type,
+                        channel=channel
+                    )
+                print(f"SSE enviado para usuário {user_id}: {event_type}")
+        except Exception as e:
+            print(f"Erro ao enviar SSE para cliente {user_id}: {e}")
+
+    def register_user_interest(self, user_id, auction_id):
+        if user_id not in self.users:
+            self.users[user_id] = set()
+        
+        self.users[user_id].add(auction_id)
+        print(f"Usuário {user_id} registrou interesse no leilão {auction_id}")
+
+    def cancel_user_interest(self, user_id, auction_id):
+        if user_id in self.users and auction_id in self.users[user_id]:
+            self.users[user_id].remove(auction_id)
+            print(f"Usuário {user_id} cancelou interesse no leilão {auction_id}")
+    
+    def register_sse_channel(self, user_id, channel):
+        self.users_channels[user_id] = channel
+        print(f"Canal SSE registrado para usuário {user_id}: {channel}")
+
+    def unregister_sse_channel(self, user_id):
+        if user_id in self.users_channels:
+            del self.users_channels[user_id]
+            print(f"Canal SSE removido para usuário {user_id}")
+
     def start_service(self):
         print("Iniciando API Gateway...")
         print("--------------------------------")
         try:
+            bids_thread = threading.Thread(target=self.consume_bids, daemon=True)
+            bids_thread.start()
+            payments_thread = threading.Thread(target=self.consume_payments, daemon=True)
+            payments_thread.start()
             print("Aguardando eventos...")
             while True:
                 time.sleep(1)
@@ -146,4 +256,4 @@ class APIGateway:
         finally:
             self.lances_rabbit.disconnect()
             self.pagamentos_rabbit.disconnect()
-            print("MAPI Gateway terminado com sucesso.")
+            print("MPI Gateway terminado com sucesso.")
