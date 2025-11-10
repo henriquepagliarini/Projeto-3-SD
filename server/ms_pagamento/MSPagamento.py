@@ -82,7 +82,7 @@ class MSPagamento:
             "payment_url": response["payment_url"]
         }
 
-        print(f"Link de pagamento gerado.")
+        print(f"Link de pagamento gerado para usuário {user_id} do leilão {auction_id}.")
         self.publish_event(event, QueueNames.PAYMENT_LINK)
 
     def process_webhook(self, data):
@@ -95,7 +95,7 @@ class MSPagamento:
         }
 
         self.publish_event(event, QueueNames.PAYMENT_STATUS)
-        print(f"Status de pagamento publicado.")
+        print(f"Status de pagamento publicado para o usuário {data["user_id"]} do leilão {data["auction_id"]}.")
 
     def start_service(self):
         print("Iniciando MS Pagamento...")

@@ -83,6 +83,7 @@ class MSLance:
                 "highest_bid": float(auction_data["highest_bid"]),
                 "winner": int(auction_data["winner"])
             }
+            print(f"Leilão {auction_id} iniciado e aceitando lances.")
         except Exception as e:
             print(f"Erro ao processar leilão iniciado: {e}.")
 
@@ -101,10 +102,10 @@ class MSLance:
                     "user_id": winner,
                     "highest_bid": highest_bid
                 }
-                print(f"Leilão {auction_id} - Vencedor: {winner} - R${highest_bid:.2f}.")
+                print(f"Leilão {auction_id} finalizado. Vencedor: {winner} - R${highest_bid:.2f}.")
                 self.publish_event(event, QueueNames.AUCTION_WINNER)
             else:
-                print(f"Leilão {auction_id} sem vencedor.")
+                print(f"Leilão {auction_id} finalizado sem vencedor.")
             del self.active_auctions[auction_id]
         except Exception as e:
             print(f"Erro ao processar leilão finalizado: {e}.")

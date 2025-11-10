@@ -8,6 +8,3 @@ class QueueNames(Enum):
     AUCTION_WINNER = "leilao_vencedor"
     PAYMENT_LINK = "link_pagamento"
     PAYMENT_STATUS = "status_pagamento"
-
-    def __str__(self):
-        return self.value

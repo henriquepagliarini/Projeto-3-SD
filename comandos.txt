@@ -1,0 +1,14 @@
+# Serviço de Pagamento Externo
+python3 server/simulador_de_pagamento/ExternalPaymentService.py
+
+# API Gateway
+python -m server.api_gateway.APIGatewayController
+
+# MS Leilão
+python -m server.ms_leilao.LeilaoController
+
+# MS Lance  
+python -m server.ms_lance.LanceController
+
+# MS Pagamento
+python -m server.ms_pagamento.PagamentoController

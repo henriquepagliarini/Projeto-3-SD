@@ -1,6 +1,5 @@
 .vscode
 server/venv
-.old
 
 server/*/__pycache__
 server/__pycache__
