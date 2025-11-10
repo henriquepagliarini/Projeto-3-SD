@@ -40,4 +40,29 @@ def create_payment_url():
     threading.Thread(target=async_notification, daemon=True).start()
     return jsonify({"payment_url": payment_url}), 200
 
-app.run(port=7777)
+@app.route("/pay/<transaction_id>", methods=["GET"])
+def pay(transaction_id):
+    transaction = transactions.get(int(transaction_id))
+    if not transaction:
+        return "Transação não encontrada", 404
+    
+    return f"""
+    <html>
+        <body>
+            <h1>Pagamento do Leilão</h1>
+            <p>Valor: R${transaction['amount']}</p>
+            <p>Leilão: {transaction['auction_id']}</p>
+            <button onclick="simularPagamento()">Pagar Agora</button>
+            <script>
+                function simularPagamento() {{
+                    // O pagamento já está sendo processado assincronamente
+                    alert('Pagamento processado! Aguarde notificação.');
+                    window.close();
+                }}
+            </script>
+        </body>
+    </html>
+    """
+
+if __name__ == "__main__":
+    app.run(port=7777, debug=True, use_reloader=False)
