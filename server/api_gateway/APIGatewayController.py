@@ -13,18 +13,37 @@ app.register_blueprint(sse, url_prefix='/stream')
 MS_LEILAO_URL = "http://localhost:6666"
 MS_LANCE_URL = "http://localhost:6667"
 
-@app.route("/api/stream")
-def stream():
-    user_id = request.args.get('user_id')
-    
-    if not user_id:
-        return jsonify({"erro": "user_id faltando"}), 400
-    
-    channel = f"user_{user_id}"
-    service.register_sse_channel(user_id, channel)
-    
-    print(f"Usuário {user_id} conectado ao SSE")
-    return sse.stream(channel=channel)
+@app.route("/api/register_channel", methods=["POST"])
+def register_channel():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"erro": "Dados recebidos inválidos"}), 400
+
+    user_id = data.get("user_id")
+    channel = data.get("channel")
+
+    try:
+        service.register_sse_channel(user_id, channel)
+        return jsonify({"mensagem": f"Canal registrado do usuário {user_id}"}), 201
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
+
+
+@app.route("/api/register_channel", methods=["DELETE"])
+def unregister_channel():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"erro": "Dados recebidos inválidos"}), 400
+
+    user_id = data.get("user_id")
+
+    try:
+        service.unregister_sse_channel(user_id)
+        return jsonify({"mensagem": f"Canal removido do usuário {user_id}"}), 200
+    except Exception as e:
+        return jsonify({"erro": str(e)}), 500
 
 @app.route("/api/interest", methods=["POST"])
 def register_interest():
@@ -41,7 +60,7 @@ def register_interest():
         return jsonify({"mensagem": f"Cliente {user_id} registrado para notificações do leilão {auction_id}"}), 201
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
-    
+
 @app.route("/api/interest", methods=["DELETE"])
 def cancel_interest():
     data = request.get_json()

@@ -21,7 +21,6 @@ def create_payment_url():
     payment_url = f"http://localhost:7777/pay/{transaction_id}"
 
     def async_notification():
-        # Fazer parte do front para usuário clicar no link e pagar
         time.sleep(3)
 
         status = "APROVADO" if random.random() < 0.65 else "RECUSADO"
@@ -46,23 +45,7 @@ def pay(transaction_id):
     if not transaction:
         return "Transação não encontrada", 404
     
-    return f"""
-    <html>
-        <body>
-            <h1>Pagamento do Leilão</h1>
-            <p>Valor: R${transaction['amount']}</p>
-            <p>Leilão: {transaction['auction_id']}</p>
-            <button onclick="simularPagamento()">Pagar Agora</button>
-            <script>
-                function simularPagamento() {{
-                    // O pagamento já está sendo processado assincronamente
-                    alert('Pagamento processado! Aguarde notificação.');
-                    window.close();
-                }}
-            </script>
-        </body>
-    </html>
-    """
+    return
 
 if __name__ == "__main__":
     app.run(port=7777, debug=True, use_reloader=False)

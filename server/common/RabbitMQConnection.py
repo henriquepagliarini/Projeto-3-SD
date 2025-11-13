@@ -1,4 +1,5 @@
 import pika
+import time
 
 class RabbitMQConnection:
     def __init__(self):
@@ -8,14 +9,21 @@ class RabbitMQConnection:
         self.fanout_exchange = None
 
     def connect(self):
-        try:
-            self.connection = pika.BlockingConnection(
-                pika.ConnectionParameters("localhost")
-            )
-            self.channel = self.connection.channel()
-            print("Conectado com sucesso.")
-        except Exception as e:
-            print(f"Erro ao conectar {e}.")
+        retry_delay = 5
+        while True:
+            try:
+                params = pika.ConnectionParameters(
+                    host="localhost",
+                    heartbeat=60,
+                    blocked_connection_timeout=30,
+                )
+                self.connection = pika.BlockingConnection(params)
+                self.channel = self.connection.channel()
+                print("Conectado com sucesso ao RabbitMQ.")
+                break
+            except Exception as e:
+                print(f"Erro ao conectar ao RabbitMQ: {e}. Tentando novamente em {retry_delay}s...")
+                time.sleep(retry_delay)
 
     def disconnect(self):
         if self.connection and not self.connection.is_closed:
@@ -28,7 +36,7 @@ class RabbitMQConnection:
         self.direct_exchange = exchange
         self.channel.exchange_declare(
             exchange=exchange, 
-            exchange_type="direct", 
+            exchange_type="direct"
         )
         print(f"Exchange direct '{exchange}' criada.")
 
@@ -36,13 +44,13 @@ class RabbitMQConnection:
         self.fanout_exchange = exchange
         self.channel.exchange_declare(
             exchange=exchange, 
-            exchange_type="fanout", 
+            exchange_type="fanout" 
         )
         print(f"Exchange fanout '{exchange}' criada.")
 
     def setup_queue(self, exchange: str, queue: str, routing_key: str):
         self.channel.queue_declare(
-            queue=queue,
+            queue=queue
         )
         self.channel.queue_bind(
             exchange=exchange,
@@ -60,7 +68,7 @@ class RabbitMQConnection:
         queue_name = queue.method.queue
         self.channel.queue_bind(
             exchange=exchange,
-            queue=queue_name,
+            queue=queue_name
         )
         print(f"Fila anônima '{queue_name}' declarada e vinculada.")
         return queue_name
