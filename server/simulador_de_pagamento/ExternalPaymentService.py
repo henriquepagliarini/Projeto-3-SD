@@ -8,7 +8,7 @@ app = Flask(__name__)
 app.json.sort_keys = False
 transactions = {}
 
-@app.post("/create_payment_url")
+@app.route("/create_payment_url", methods=["POST"])
 def create_payment_url():
     data = request.get_json()
 
@@ -38,14 +38,6 @@ def create_payment_url():
         
     threading.Thread(target=async_notification, daemon=True).start()
     return jsonify({"payment_url": payment_url}), 200
-
-@app.route("/pay/<transaction_id>", methods=["GET"])
-def pay(transaction_id):
-    transaction = transactions.get(int(transaction_id))
-    if not transaction:
-        return "Transação não encontrada", 404
-    
-    return
 
 if __name__ == "__main__":
     app.run(port=7777, debug=True, use_reloader=False)

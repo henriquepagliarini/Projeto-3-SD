@@ -22,10 +22,18 @@ curl -s -X POST http://localhost:6660/api/interest \
   -H "Content-Type: application/json" \
   -d '{"user_id":1, "auction_id":1}'
 
-  curl -s -X POST http://localhost:6660/api/leiloes \
+curl -s -X POST http://localhost:6660/api/leiloes \
   -H "Content-Type: application/json" \
-  -d '{"description":"Carro", "start_in":{"seconds":10}, "duration":{"seconds":30}}'
+  -d '{"description":"Carro", "start_in":{"seconds":10}, "duration":{"seconds":60}}'
 
-  curl -s -X POST http://localhost:6660/api/lances \
+curl -s -X POST http://localhost:6660/api/lances \
   -H "Content-Type: application/json" \
   -d '{"auction_id":1, "user_id":1, "value":100}'
+
+curl -s -X POST http://localhost:6660/api/lances \
+  -H "Content-Type: application/json" \
+  -d '{"auction_id":1, "user_id":1, "value":200}'
+
+curl -s -X POST http://localhost:6660/api/lances \
+  -H "Content-Type: application/json" \
+  -d '{"auction_id":1, "user_id":2, "value":300}'

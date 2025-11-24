@@ -1,5 +1,4 @@
 from threading import Thread
-import requests
 from flask import Flask, jsonify, request
 from server.ms_pagamento.MSPagamento import MSPagamento
 
