@@ -3,5 +3,3 @@ server/venv
 
 server/*/__pycache__
 server/__pycache__
-
-test.sh
