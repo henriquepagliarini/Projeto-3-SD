@@ -3,9 +3,12 @@ import requests
 from flask import Flask, jsonify, request
 from flask_sse import sse
 from server.api_gateway.APIGateway import APIGateway
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.json.sort_keys = False
+
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 app.config["REDIS_URL"] = "redis://localhost:6379/0"
 app.register_blueprint(sse, url_prefix='/stream')

@@ -1,11 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Leilões</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-    
-</body>
+    <body>
+        <h1>Leilão</h1>
+
+        <div class="card">
+            <h2>Identificação</h2>
+            <label>ID do Usuário:</label>
+            <input id="user-id" type="text" placeholder="ex: 3" />
+            <button id="channel-btn" onclick="toggleChannel()">Registrar Canal SSE</button>
+        </div>
+
+        <div class="card">
+            <h2>Dar Lance</h2>
+
+            <input id="auction-id" placeholder="ID do Leilão" />
+            <input id="bid-value" placeholder="Valor do lance" type="number" />
+
+            <button onclick="makeBid()">Enviar Lance</button>
+        </div>
+
+        <div class="card">
+            <h2>Leilões Ativos</h2>
+            <button onclick="listAuctions()">Atualizar</button>
+            <div id="auctions-list"></div>
+        </div>
+
+        <div class="card">
+            <h2>Criar Leilão</h2>
+
+            <label>Descrição:</label>
+            <input id="description" placeholder="Ex: Carro, Bicicleta, Notebook" />
+
+            <h3>Começa em:</h3>
+            <input id="start-in-value" type="number" min="0" placeholder="Tempo para iniciar" />
+            <select id="start-in-unit">
+                <option value="seconds">Segundos</option>
+                <option value="minutes">Minutos</option>
+                <option value="hours">Horas</option>
+                <option value="days">Dias</option>
+            </select>
+
+            <h3>Duração:</h3>
+            <input id="duration-value" type="number" min="1" placeholder="Quantidade" />
+            <select id="duration-unit">
+                <option value="seconds">Segundos</option>
+                <option value="minutes">Minutos</option>
+                <option value="hours">Horas</option>
+                <option value="days">Dias</option>
+            </select>
+
+            <button onclick="createAuction()">Criar Leilão</button>
+        </div>
+
+        <div class="card">
+            <h2>Notificações</h2>
+            <input id="interested-auction" placeholder="ID do Leilão" />
+
+            <button onclick="registerInterest()">Registrar Interesse</button>
+            <button onclick="cancelInterest()">Cancelar Interesse</button>
+
+            <h3>Notificações Recebidas:</h3>
+            <div id="notifications"></div>
+        </div>
+
+        <script src="/client/src/api.js"></script>
+    </body>
 </html>

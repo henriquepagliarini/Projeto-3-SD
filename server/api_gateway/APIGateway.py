@@ -104,7 +104,6 @@ class APIGateway:
         except Exception as e:
             print(f"Erro ao processar lance válido: {e}")
 
-
     def process_bid_invalid(self, ch, method, properties, body):
         try:
             data = json.loads(body)
