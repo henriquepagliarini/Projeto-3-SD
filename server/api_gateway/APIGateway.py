@@ -180,7 +180,7 @@ class APIGateway:
             sse_type = "status_pagamento"
 
             message = {
-                "type": "status_pagamento",
+                "type": sse_type,
                 "user_id": user_id,
                 "auction_id": auction_id,
                 "status": status,
@@ -195,8 +195,10 @@ class APIGateway:
 
     def sse_to_interested_users(self, auction_id, event_type, data):
         interested_users = []
+        auction_key = str(auction_id)
+
         for user_id, auctions in self.users.items():
-            if auction_id in auctions:
+            if auction_key in map(str, auctions):
                 interested_users.append(user_id)
         
         for user_id in interested_users:
@@ -204,37 +206,47 @@ class APIGateway:
 
     def sse_to_user(self, user_id, event_type, data):
         try:
-            with self.app.app_context():
-                channel = self.users_channels.get(user_id)
-                if channel:
+            user_key = str(user_id)
+            channel = self.users_channels.get(user_key)
+            if channel:
+                with self.app.app_context():
                     self.sse.publish(
                         data,
                         type=event_type,
                         channel=channel
                     )
-                print(f"SSE enviado para usuário {user_id}: {event_type}")
+                print(f"SSE enviado para usuário {user_id}: {event_type} (channel={channel})")
+            else:
+                print(f"Usuário {user_id} não tem canal registrado para receber {event_type}")
         except Exception as e:
             print(f"Erro ao enviar SSE para cliente {user_id}: {e}")
 
     def register_user_interest(self, user_id, auction_id):
-        if user_id not in self.users:
-            self.users[user_id] = set()
-        
-        self.users[user_id].add(auction_id)
-        print(f"Usuário {user_id} registrou interesse no leilão {auction_id}")
+        user_key = str(user_id)
+        auction_key = str(auction_id)
+
+        if user_key not in self.users:
+            self.users[user_key] = set()
+
+        self.users[user_key].add(auction_key)
+        print(f"Usuário {user_key} registrou interesse no leilão {auction_key}")
 
     def cancel_user_interest(self, user_id, auction_id):
-        if user_id in self.users and auction_id in self.users[user_id]:
-            self.users[user_id].remove(auction_id)
-            print(f"Usuário {user_id} cancelou interesse no leilão {auction_id}")
+        user_key = str(user_id)
+        auction_key = str(auction_id)
+
+        if user_key in self.users and auction_key in self.users[user_key]:
+            self.users[user_key].remove(auction_key)
+            print(f"Usuário {user_key} cancelou interesse no leilão {auction_key}")
     
     def register_sse_channel(self, user_id, channel):
-        self.users_channels[user_id] = channel
+        self.users_channels[str(user_id)] = channel
         print(f"Canal SSE registrado para usuário {user_id}: {channel}")
 
     def unregister_sse_channel(self, user_id):
-        if user_id in self.users_channels:
-            del self.users_channels[user_id]
+        user_key = str(user_id)
+        if user_key in self.users_channels:
+            del self.users_channels[user_key]
             print(f"Canal SSE removido para usuário {user_id}")
 
     def start_service(self):

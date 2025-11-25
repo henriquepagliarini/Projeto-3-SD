@@ -1,6 +1,8 @@
+import json
 from threading import Thread
+import time
 import requests
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
 from flask_sse import sse
 from server.api_gateway.APIGateway import APIGateway
 from flask_cors import CORS
@@ -15,6 +17,28 @@ app.register_blueprint(sse, url_prefix='/stream')
 
 MS_LEILAO_URL = "http://localhost:6666"
 MS_LANCE_URL = "http://localhost:6667"
+
+@app.route('/api/sse/<user_id>')
+def sse_stream(user_id):
+    def event_stream():
+        try:
+            service.register_sse_channel(user_id, user_id)
+            print(f"SSE conectado para usuário {user_id}")
+
+            while True:
+                yield f"data: {json.dumps({'type': 'heartbeat', 'message': 'connected'})}\n\n"
+                time.sleep(30)
+        except Exception as e:
+            print(f"Erro no stream SSE: {e}")
+    
+    return Response(event_stream(), 
+                    mimetype="text/event-stream",
+                    headers={
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Headers': 'Cache-Control'
+                    })
 
 @app.route("/api/register_channel", methods=["POST"])
 def register_channel():
@@ -61,22 +85,6 @@ def register_interest():
     try:
         service.register_user_interest(user_id, auction_id)
         return jsonify({"mensagem": f"Cliente {user_id} registrado para notificações do leilão {auction_id}"}), 201
-    except Exception as e:
-        return jsonify({"erro": str(e)}), 500
-
-@app.route("/api/interest", methods=["DELETE"])
-def cancel_interest():
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"erro": "Dados recebidos inválidos"}), 400
-
-    auction_id = data["auction_id"]
-    user_id = data["user_id"]
-
-    try:
-        service.cancel_user_interest(user_id, auction_id)
-        return jsonify({"mensagem": f"Cliente {user_id} cancelou notificações do leilão {auction_id}"}), 201
     except Exception as e:
         return jsonify({"erro": str(e)}), 500
 

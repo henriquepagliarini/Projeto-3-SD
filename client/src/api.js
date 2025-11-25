@@ -1,6 +1,7 @@
 const API = "http://localhost:6660/api";
 let id = null;
 let channelRegistered = false;
+let eventSource = null;
 
 async function listAuctions() {
     fetch(`${API}/leiloes`).then(response => {
@@ -111,37 +112,46 @@ async function toggleChannel() {
     id = userId;
 
     if (!channelRegistered) {
-        await fetch(`${API}/register_channel`, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ user_id: userId, channel: userId })
-        });
+        try {
+            await fetch(`${API}/register_channel`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ user_id: id, channel: id })
+            });
+            startSSE(id);
 
-        channelRegistered = true;
-        btn.textContent = "Remover Canal SSE";
-        btn.style.background = "#ff0000";
-        userIdInput.disabled = true;
-
-    } 
-    else {
-        await fetch(`${API}/register_channel`, {
-            method: "DELETE",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ user_id: userId })
-        });
-
+            channelRegistered = true;
+            btn.textContent = "Remover Canal SSE";
+            btn.style.background = "#ff0000";
+            userIdInput.disabled = true;
+        } catch (err) {
+            console.error('Erro ao registrar canal:', err);
+            alert('Erro ao registrar canal SSE');
+        }
+    } else {
         if (eventSource) {
             eventSource.close();
+            eventSource = null;
         }
 
-        channelRegistered = false;
-        btn.textContent = "Registrar Canal SSE";
-        btn.style.background = "#0000ff";
-        userIdInput.disabled = false;
+        try {
+            await fetch(`${API}/register_channel`, {
+                method: "DELETE",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({ user_id: id })
+            });
+
+            channelRegistered = false;
+            btn.textContent = "Registrar Canal SSE";
+            btn.style.background = "#0000ff";
+            userIdInput.disabled = false;
+        } catch (err) {
+            console.error('Erro ao remover canal:', err);
+        }
     }
 }
 
-async function registrarInteresse() {
+async function registerInterest() {
     const data = {
         auction_id: document.getElementById("interested-auction").value,
         user_id: id
@@ -152,21 +162,77 @@ async function registrarInteresse() {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify(data)
     });
-
-    alert("Interesse registrado!");
 }
 
-async function cancelarInteresse() {
-    const data = {
-        auction_id: document.getElementById("interested-auction").value,
-        user_id: id
+function startSSE(userId) {
+    if (eventSource) {
+        eventSource.close();
+    }
+
+    eventSource = new EventSource(`${API}/sse/${userId}`);
+
+    eventSource.onopen = () => {
+        console.log("SSE conectado para usuário", userId);
+        notify("Conectado ao canal SSE");
     };
 
-    await fetch(`${API}/interest`, {
-        method: "DELETE",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(data)
+    eventSource.onerror = (err) => {
+        console.error("Erro SSE:", err);
+        notify("Erro na conexão SSE");
+    };
+
+    eventSource.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'heartbeat') {
+                console.log("Heartbeat recebido");
+                return;
+            }
+            notify("Mensagem: " + event.data);
+        } catch (e) {
+            console.log("Mensagem SSE:", event.data);
+        }
+    };
+
+
+
+    eventSource.addEventListener("lance_valido", e => {
+        const data = JSON.parse(e.data);
+        notify(`Lance válido no leilão ${data.auction_id}: R$${data.value}`);
     });
 
-    alert("Interesse cancelado!");
+    eventSource.addEventListener("lance_invalido", e => {
+        const data = JSON.parse(e.data);
+        notify(`Lance inválido no leilão ${data.auction_id}: R$${data.value}`);
+    });
+
+    eventSource.addEventListener("vencedor_leilao", e => {
+        const data = JSON.parse(e.data);
+        if (data.user_id == userId) {
+            notify(`PARABÉNS! Você venceu o leilão ${data.auction_id} com R$${data.highest_bid}`);
+        } else {
+            notify(`Vencedor do leilão ${data.auction_id}: usuário ${data.user_id} com R$${data.highest_bid}`);
+        }
+    });
+
+    eventSource.addEventListener("link_pagamento", e => {
+        const data = JSON.parse(e.data);
+        if (data.user_id == userId) {
+            notify(`Link de pagamento: <a href="${data.payment_url}" target="_blank">Clique aqui para pagar R$${data.amount}</a>`);
+        }
+    });
+
+    eventSource.addEventListener("status_pagamento", e => {
+        const data = JSON.parse(e.data);
+        if (data.user_id == userId) {
+            const status = data.status === 'approved' ? 'APROVADO' : 'RECUSADO';
+            notify(`Status do pagamento: ${status} (R$${data.amount})`);
+        }
+    });
+}
+
+function notify(msg) {
+    const div = document.getElementById("notifications");
+    div.innerHTML += `<div>→ ${msg}</div>`;
+    div.scrollTop = div.scrollHeight;
 }
